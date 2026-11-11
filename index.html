@@ -16,7 +16,7 @@
 <div class="intro"><div><div class="eyebrow">DAS ELFMETER-DUELL</div><h1>Ein Schuss. <em>Ein Knall.</em></h1><p class="sub">Überliste den Keeper. Triff das Netz. Lass es krachen.</p></div><div class="round">RUNDE <strong id="round">01</strong> / 05</div></div>
 <div class="mode-picker"><label class="label" for="mode">SPIELMODUS</label><select id="mode"><option value="computer">Gegen den Computer</option><option value="teams">2 gegen 2 · Bandenfußball</option><option value="duo">2 Spieler · lokal</option></select><span class="mode-note" id="mode-note">Der Computer steuert den Torwart.</span></div>
 <section id="team-setup" class="team-setup" hidden aria-label="Teamauswahl"></section>
-<div id="match-bar" class="match-bar" hidden><output id="match-score" aria-live="polite">0 : 0</output><span id="match-time">90 s</span><button id="match-start">Anpfiff / Neues Spiel</button><div class="team-help">Links: WASD + F schießen · Rechts: Pfeiltasten + Enter schießen.<br>Je ein Mensch und ein Computer pro Team. Laufrichtung bestimmt den Schuss. Banden halten den Ball im Spiel. Spielzeit: 90 Sekunden.</div></div>
+<div id="match-bar" class="match-bar" hidden><label>Teamaufteilung <select id="team-arrangement"><option value="split">Gegeneinander · Mensch + CPU je Team</option><option value="coop">Zusammen · 2 Menschen gegen 2 CPU</option></select></label><label>Schwierigkeit <select id="difficulty"><option value="easy">Leicht · sehr schwacher Computer</option><option value="normal" selected>Normal</option><option value="hard">Schwer</option></select></label><output id="match-score" aria-live="polite">0 : 0</output><span id="match-time">90 s</span><button id="match-start">Anpfiff / Neues Spiel</button><div class="team-help" id="team-help">Links: WASD + F schießen · Rechts: Pfeiltasten + Enter schießen.<br>Je ein Mensch und ein Computer pro Team. Laufrichtung bestimmt den Schuss. Banden halten den Ball im Spiel. Spielzeit: 90 Sekunden.</div></div>
 <div class="layout"><div class="arena"><div class="live">ELFMETERPUNKT · 11 METER</div><canvas id="game" width="800" height="560" tabindex="0" aria-label="Elfmeterspiel. Mit Maus oder Pfeiltasten im Tor zielen, mit Leertaste oder dem Schuss-Button schießen."></canvas><div class="hint" id="hint">BEWEGE DEN ZIELPUNKT INS TOR</div></div>
 <aside class="panel"><div><div class="label">DEINE TREFFER</div><div class="score"><span id="score">0</span> <small>/ 5</small></div><div class="shots" id="shots"></div></div><div class="divider"></div><div><div class="label">SPIELSTATUS</div><div class="status" id="status" role="status" aria-live="polite">Bereit für den Knall?</div><div class="detail" id="detail">Ziele in eine freie Ecke. Der Torwart bleibt in Bewegung.</div></div><div><div class="label">SCHUSSKRAFT</div><div class="meter"><div id="power"></div></div><div class="power-label"><span>TIMING IST ALLES</span><span id="percent">65 %</span></div></div><div class="controls"><button id="shoot">SCHIESSEN ↗</button><button class="secondary" id="restart" style="margin-top:9px">↻ Neue Runde</button></div></aside></div>
 <div class="keeper-controls" id="keeper-controls" hidden aria-label="Verdeckte Torwartwahl"><span class="mode-note">Torwart wählt verdeckt per Tastatur: Q / W / E = oben links / Mitte / rechts; A / S / D = unten links / Mitte / rechts. Der Schütze schaut während der Eingabe weg.</span></div>
@@ -32,7 +32,20 @@ const countries = {
   Argentinien: {color:'#7ed9ef', players:['Messi','Álvarez','Martínez','De Paul']},
   Portugal: {color:'#ee8ca5', players:['Ronaldo','Fernandes','Leão','Vitinha']}
 };
+const aiLevels={
+  easy:{speed:45,reaction:1.5,error:145,shotError:1.15,power:180,delay:1.6},
+  normal:{speed:123,reaction:.35,error:28,shotError:.18,power:400,delay:.35},
+  hard:{speed:165,reaction:.1,error:3,shotError:.025,power:490,delay:.12}
+};
 let match, matchKeys=new Set();
+function updateTeamLabels(){
+  const coop=$('team-arrangement').value==='coop';
+  [0,1].forEach(t=>['human','cpu'].forEach((role,i)=>{
+    const select=$(`${role}-${t}`);
+    select.previousSibling.textContent=coop?(t?'Computer '+(i+1):'Mensch '+(i+1)):(i?'Computer':'Mensch');
+  }));
+  $('team-help').textContent=(coop?'Gemeinsam im linken Team: Mensch 1 mit WASD + F, Mensch 2 mit Pfeiltasten + Enter. Rechts spielen zwei Computer. ':'Gegeneinander: Links WASD + F, rechts Pfeiltasten + Enter; je ein Computer hilft. ')+ 'Laufrichtung bestimmt den Schuss. Banden halten den Ball im Spiel. Spielzeit: 90 Sekunden. Änderungen setzen das Spiel zurück.';
+}
 function initTeams(){
   document.getElementById('team-setup').innerHTML=[0,1].map(t=>`<div class="team-card"><b>Team ${t+1} · ${t?'rechts → links':'links → rechts'}</b><label>Land<select id="country-${t}">${Object.keys(countries).map(c=>`<option>${c}</option>`).join('')}</select></label><label>Mensch<select id="human-${t}"></select></label><label>Computer<select id="cpu-${t}"></select></label></div>`).join('');
   [0,1].forEach(t=>{
@@ -55,6 +68,8 @@ function initTeams(){
     });
     populate();
   });
+  ['team-arrangement','difficulty'].forEach(id=>$(id).onchange=()=>{updateTeamLabels();resetMatch()});
+  updateTeamLabels();
   document.getElementById('match-start').onclick=()=>{resetMatch();match.running=true;canvas.focus()};
 }
 function configureMatchMode(){
@@ -63,17 +78,18 @@ function configureMatchMode(){
   $('team-setup').hidden=!active;$('match-bar').hidden=!active;
   $('mode-note').textContent=active?'Zwei Teams, vier Spieler, ein Ball. Wähle eure Aufstellung und starte das Spiel.':$('mode-note').textContent;
   document.querySelector('.live').textContent=active?'2 GEGEN 2 · BANDENARENA':'ELFMETERPUNKT · 11 METER';
-  canvas.setAttribute('aria-label',active?'Bandenfußball aus der Vogelperspektive. Team 1: WASD und F. Team 2: Pfeiltasten und Enter.':'Elfmeterspiel. Mit Maus oder Pfeiltasten zielen, mit Leertaste schießen.');
+  canvas.setAttribute('aria-label',active?'Bandenfußball aus der Vogelperspektive. Mensch 1: WASD und F. Mensch 2: Pfeiltasten und Enter. Teamaufteilung wählbar.':'Elfmeterspiel. Mit Maus oder Pfeiltasten zielen, mit Leertaste schießen.');
   matchKeys.clear();
 }
 function kickoff(){
-  match.players=[0,1].flatMap(t=>[0,1].map(i=>({team:t,cpu:!!i,name:document.getElementById(`${i?'cpu':'human'}-${t}`).value,x:t?575:225,y:i?355:205,dx:t?-1:1,dy:0,cooldown:0})));
+  const coop=$('team-arrangement').value==='coop';
+  match.players=[0,1].flatMap(t=>[0,1].map(i=>({team:t,cpu:coop?t===1:!!i,control:coop?i:t,think:0,targetX:400,targetY:280,shotWait:aiLevels[$('difficulty').value].delay,name:document.getElementById(`${i?'cpu':'human'}-${t}`).value,x:t?575:225,y:i?355:205,dx:t?-1:1,dy:0,cooldown:0})));
   match.ball={x:400,y:280,vx:0,vy:0};match.pause=0.8;
 }
 function resetMatch(){
   match={score:[0,0],remaining:90,running:false,pause:0,players:[],ball:{x:400,y:280,vx:0,vy:0}};
   if(!document.getElementById('human-1')?.options.length)return;
-  kickoff();matchHud();
+  matchKeys.clear();kickoff();matchHud();
 }
 function matchHud(){
   $('match-score').textContent=`${$('country-0').value} ${match.score[0]} : ${match.score[1]} ${$('country-1').value}`;
@@ -83,8 +99,10 @@ function matchHud(){
 function kickMatch(p){
   const b=match.ball,dist=Math.hypot(b.x-p.x,b.y-p.y);
   if(dist>32||p.cooldown>0)return;
-  const len=Math.hypot(p.dx,p.dy)||1;
-  b.vx=p.dx/len*490;b.vy=p.dy/len*490;p.cooldown=.35;
+  const level=aiLevels[$('difficulty').value];
+  const angle=Math.atan2(p.dy,p.dx)+(p.cpu?(Math.random()*2-1)*level.shotError:0);
+  const power=p.cpu?level.power:490;
+  b.vx=Math.cos(angle)*power;b.vy=Math.sin(angle)*power;p.cooldown=p.cpu?level.delay:.35;
 }
 function updateMatch(dt){
   if(!match?.running)return;
@@ -97,22 +115,26 @@ function updateMatch(dt){
     p.cooldown=Math.max(0,p.cooldown-dt);
     let dx=0,dy=0;
     if(p.cpu){
-      const human=match.players.find(q=>q.team===p.team&&!q.cpu);
-      // Support a nearby human carrier; otherwise chase the ball.
-      const support=Math.hypot(human.x-b.x,human.y-b.y)<42;
-      const tx=support?Math.max(90,Math.min(710,b.x+(p.team?-100:100))):b.x;
-      const ty=support?(b.y<280?380:180):b.y;
-      dx=tx-p.x;dy=ty-p.y;
+      const level=aiLevels[$('difficulty').value];
+      p.think-=dt;
+      if(p.think<=0){
+        const teammate=match.players.find(q=>q.team===p.team&&q!==p);
+        const support=Math.hypot(teammate.x-b.x,teammate.y-b.y)<42;
+        p.targetX=(support?b.x+(p.team?-100:100):b.x)+(Math.random()*2-1)*level.error;
+        p.targetY=(support?(b.y<280?380:180):b.y)+(Math.random()*2-1)*level.error;
+        p.think=level.reaction;
+      }
+      dx=p.targetX-p.x;dy=p.targetY-p.y;
       if(Math.hypot(dx,dy)<8)dx=dy=0;
     }else{
-      const keys=p.team?['ArrowLeft','ArrowRight','ArrowUp','ArrowDown']:['KeyA','KeyD','KeyW','KeyS'];
+      const keys=p.control?['ArrowLeft','ArrowRight','ArrowUp','ArrowDown']:['KeyA','KeyD','KeyW','KeyS'];
       dx=Number(matchKeys.has(keys[1]))-Number(matchKeys.has(keys[0]));dy=Number(matchKeys.has(keys[3]))-Number(matchKeys.has(keys[2]));
     }
     const len=Math.hypot(dx,dy);
-    if(len){p.dx=dx/len;p.dy=dy/len;p.x+=p.dx*(p.cpu?123:155)*dt;p.y+=p.dy*(p.cpu?123:155)*dt}
+    if(len){p.dx=dx/len;p.dy=dy/len;p.x+=p.dx*(p.cpu?aiLevels[$('difficulty').value].speed:155)*dt;p.y+=p.dy*(p.cpu?aiLevels[$('difficulty').value].speed:155)*dt}
     p.x=Math.max(53,Math.min(747,p.x));p.y=Math.max(53,Math.min(507,p.y));
-    if(p.cpu&&Math.hypot(b.x-p.x,b.y-p.y)<31){p.dx=p.team?-1:1;p.dy=(280-p.y)/450;kickMatch(p)}
-    if(!p.cpu&&matchKeys.has(p.team?'Enter':'KeyF'))kickMatch(p);
+    if(p.cpu){p.shotWait=Math.hypot(b.x-p.x,b.y-p.y)<31?p.shotWait-dt:aiLevels[$('difficulty').value].delay;if(p.shotWait<=0){p.dx=p.team?-1:1;p.dy=(280-p.y)/450;kickMatch(p);p.shotWait=aiLevels[$('difficulty').value].delay}}
+    if(!p.cpu&&matchKeys.has(p.control?'Enter':'KeyF'))kickMatch(p);
     const bx=b.x-p.x,by=b.y-p.y,d=Math.hypot(bx,by);
     if(d<23){const nx=d?bx/d:p.dx,ny=d?by/d:p.dy;b.x=p.x+nx*23;b.y=p.y+ny*23;if(p.cooldown===0){b.vx=nx*100+p.dx*65;b.vy=ny*100+p.dy*65}}
   }
@@ -139,7 +161,7 @@ function drawMatch(){
     ctx.fillStyle=countries[$(`country-${p.team}`).value].color;
     ctx.beginPath();ctx.arc(p.x,p.y,15,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle=p.team?'#e35b52':'#4eaaff';ctx.lineWidth=4;ctx.stroke();
-    ctx.fillStyle='#11251c';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText(p.cpu?'CPU':`P${p.team+1}`,p.x,p.y+4);
+    ctx.fillStyle='#11251c';ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillText(p.cpu?'CPU':`P${p.control+1}`,p.x,p.y+4);
     ctx.fillStyle='#fff';ctx.font='12px sans-serif';ctx.fillText(p.name,p.x,p.y-23);
     line(p.x+p.dx*17,p.y+p.dy*17,p.x+p.dx*23,p.y+p.dy*23,'#fff',3);
   }

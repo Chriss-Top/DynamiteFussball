@@ -44,3 +44,15 @@ Im Spielmodus **2 gegen 2 · Bandenfußball** spielt jedes Team mit einem Mensch
 - Nach 90 Sekunden endet das Spiel mit Ergebnis. Beide Menschen benötigen dieselbe Tastatur; dieser Modus ist für den Desktop gedacht.
 
 Auch dieser Modus benötigt keine Installation und keine Internetverbindung.
+
+### Zusammen spielen und Schwierigkeit
+
+Unter **Teamaufteilung** lässt sich zwischen Gegeneinander (je Mensch + Computer) und **Zusammen · 2 Menschen gegen 2 CPU** wechseln. Im gemeinsamen Team steuert Mensch 1 den ersten Spieler mit WASD/F, Mensch 2 den zweiten mit Pfeiltasten/Enter. Beide spielen links gegen das rechte Computerteam. Die Spielerauswahl zeigt die jeweilige Besetzung an.
+
+Die Schwierigkeit gilt für alle Computer im Bandenmodus:
+
+- **Leicht:** sehr langsame Bewegung, lange Reaktions- und Schusszeiten, große Zielfehler und schwache, ungenaue Schüsse.
+- **Normal:** zügige Bewegung und ordentliche Schüsse, aber Reaktionszeit und Ungenauigkeit bleiben spürbar.
+- **Schwer:** schnelle Bewegung, kurze Reaktionszeiten und kräftige, genaue Schüsse.
+
+Änderungen an Teamaufteilung oder Schwierigkeit setzen das Spiel zurück; danach erneut anpfeifen.
