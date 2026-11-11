@@ -32,3 +32,15 @@ Der Torwart hält nahe Schüsse in seiner Reichweite; hohe Schüsse und freie Ec
 - Im Computer-Modus bewegt sich der Torwart automatisch; Q/W/E/A/S/D haben dort keinen Einfluss.
 
 Das gesamte Spiel bleibt in `index.html` enthalten und funktioniert ohne Internetverbindung.
+
+## 2 gegen 2 · Bandenfußball
+
+Im Spielmodus **2 gegen 2 · Bandenfußball** spielt jedes Team mit einem Menschen und einem Computer aus der Vogelperspektive. Pro Team Land sowie unterschiedliche Spieler für Mensch und Computer auswählen, dann **Anpfiff / Neues Spiel** drücken. Änderungen an der Aufstellung setzen das Spiel zurück.
+
+- Team 1: WASD bewegen, F schießen; spielt auf das rechte Tor.
+- Team 2: Pfeiltasten bewegen, Enter schießen; spielt auf das linke Tor.
+- In Ballnähe schießen; die letzte Laufrichtung bestimmt die Schussrichtung. Der Computer läuft zum Ball oder bietet sich als Unterstützung an und schießt selbstständig.
+- Der Ball prallt an den Banden ab; nur die beiden Toröffnungen zählen als Tore. Nach einem Tor folgt ein neuer Anstoß.
+- Nach 90 Sekunden endet das Spiel mit Ergebnis. Beide Menschen benötigen dieselbe Tastatur; dieser Modus ist für den Desktop gedacht.
+
+Auch dieser Modus benötigt keine Installation und keine Internetverbindung.
